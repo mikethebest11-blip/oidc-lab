@@ -1,0 +1,22 @@
+name: fork-claims
+on: pull_request
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  show:
+    runs-on: ubuntu-latest
+    steps:
+      - name: oidc
+        run: |
+          echo "env_present=$([ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && echo yes || echo no)"
+          echo "token_present=$([ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ] && echo yes || echo no)"
+          if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
+            RESP=$(curl -sS -w "\nHTTP:%{http_code}" -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=forklab")
+            echo "$RESP" | head -c 600
+            echo
+            TOK=$(echo "$RESP" | head -n1 | jq -r .value 2>/dev/null)
+            if [ -n "$TOK" ] && [ "$TOK" != "null" ]; then
+              echo "$TOK" | cut -d. -f2 | python3 -c "import sys,base64,json; t=sys.stdin.read().strip(); t+='='*(-len(t)%4); print(json.dumps(json.loads(base64.urlsafe_b64decode(t)),indent=1,sort_keys=True))"
+            fi
+          fi
